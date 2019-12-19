@@ -104,15 +104,14 @@ class DataWorker(object):
 
 def update_weights(model, optimizer, replay_buffer, config):
     batch = ray.get(replay_buffer.sample_batch.remote(config.num_unroll_steps, config.td_steps))
-    obs_batch, action_batch, target_reward, target_value, target_policy, indices, weights, action_lens = batch
+    obs_batch, action_batch, target_reward, target_value, target_policy, indices, weights = batch
 
     obs_batch = obs_batch.to(config.device)
-    action_batch = action_batch.to(config.device)
+    action_batch = action_batch.to(config.device).unsqueeze(-1)
     target_reward = target_reward.to(config.device)
     target_value = target_value.to(config.device)
     target_policy = target_policy.to(config.device)
     weights = weights.to(config.device)
-    action_lens = action_lens.to(config.device)
 
     value, _, policy_logits, hidden_state = model.initial_inference(obs_batch)
 
@@ -120,25 +119,12 @@ def update_weights(model, optimizer, replay_buffer, config):
     policy_loss = -(torch.log_softmax(policy_logits, dim=1) * target_policy[:, 0, :]).sum(1)
     reward_loss = torch.zeros(config.batch_size, device=config.device)
 
-    b_i, roll_out_step = 0, 1
-    for step_i, step_batch_size in enumerate(action_batch.batch_sizes):
-        hidden_state = hidden_state[:step_batch_size]
-        step_i_action_batch = action_batch.data[b_i:b_i + step_batch_size].unsqueeze(-1)
-        value, reward, policy_logits, hidden_state = model.recurrent_inference(hidden_state,
-                                                                               step_i_action_batch)
-
-        gradient_scale = (1 / action_lens)[:step_batch_size]
-        policy_loss[:step_batch_size] += gradient_scale * -(torch.log_softmax(policy_logits, dim=1) *
-                                                            target_policy[:step_batch_size, roll_out_step, :]).sum(1)
-        value_loss[:step_batch_size] += gradient_scale * config.scalar_loss(value.squeeze(-1),
-                                                                            target_value[:step_batch_size,
-                                                                            roll_out_step])
-        reward_loss[:step_batch_size] += gradient_scale * config.scalar_loss(reward.squeeze(-1),
-                                                                             target_reward[:step_batch_size,
-                                                                             roll_out_step])
-
-        b_i += step_batch_size
-        roll_out_step += 1
+    gradient_scale = 1 / config.num_unroll_steps
+    for step_i in range(config.num_unroll_steps):
+        value, reward, policy_logits, hidden_state = model.recurrent_inference(hidden_state, action_batch[:, step_i])
+        policy_loss += gradient_scale * -(torch.log_softmax(policy_logits, dim=1) * target_policy[:, step_i + 1]).sum(1)
+        value_loss += gradient_scale * config.scalar_loss(value.squeeze(-1), target_value[:, step_i + 1])
+        reward_loss += gradient_scale * config.scalar_loss(reward.squeeze(-1), target_reward[:, step_i])
 
     # optimize
     loss = (policy_loss + value_loss + reward_loss)
@@ -164,7 +150,8 @@ def adjust_lr(config, optimizer, step_count):
 def _train(config, shared_storage, replay_buffer, summary_writer):
     model = config.get_uniform_network().to(config.device)
     model.train()
-    optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=config.momentum, weight_decay=config.weight_decay)
+    optimizer = optim.SGD(model.parameters(), lr=config.lr_init, momentum=config.momentum,
+                          weight_decay=config.weight_decay)
     test_model = config.get_uniform_network().to(config.device)
     best_test_score = None
 

@@ -1,5 +1,11 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+
 # Pycharm
-.idea/
+.idea/*
 
 # results dir
 /results

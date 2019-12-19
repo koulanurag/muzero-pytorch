@@ -1,4 +1,5 @@
 from typing import List
+import numpy as np
 
 
 class Player(object):
@@ -80,10 +81,7 @@ class Game:
     def make_target(self, state_index: int, num_unroll_steps: int, td_steps: int):
         # The value target is the discounted root value of the search tree N steps
         # into the future, plus the discounted sum of all rewards until then.
-        targets = []
-        target_rewards = []
-        target_values = []
-        target_policies = []
+        target_values, target_rewards, target_policies = [], [], []
         for current_index in range(state_index, state_index + num_unroll_steps + 1):
             bootstrap_index = current_index + td_steps
             if bootstrap_index < len(self.root_values):
@@ -92,17 +90,18 @@ class Game:
                 value = 0
 
             for i, reward in enumerate(self.rewards[current_index:bootstrap_index]):
-                value += reward * self.discount ** i  # pytype: disable=unsupported-operands
+                value += reward * self.discount ** i
 
             if current_index < len(self.root_values):
-                targets.append((value, self.rewards[current_index], self.child_visits[current_index]))
+                target_values.append(value)
+                target_rewards.append(self.rewards[current_index])
+                target_policies.append(self.child_visits[current_index])
             else:
                 # States past the end of games are treated as absorbing states.
-                targets.append((0, 0, [1 / len(self.child_visits[0]) for _ in range(len(self.child_visits[0]))]))
-
-            target_policies.append(targets[-1][2])
-            target_rewards.append(targets[-1][1])
-            target_values.append(targets[-1][0])
+                target_values.append(0)
+                target_rewards.append(0)
+                # Note: Target policy is  set to 0.
+                target_policies.append([0 for _ in range(len(self.child_visits[0]))])
 
         return target_values, target_rewards, target_policies
 

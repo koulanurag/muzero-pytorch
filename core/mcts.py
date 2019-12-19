@@ -84,7 +84,7 @@ class MCTS(object):
                                                                     device=parent.hidden_state.device))
             node.expand(history.to_play(), history.action_space(), network_output)
 
-            self.backpropagate(search_path, network_output.value, history.to_play(), min_max_stats)
+            self.backpropagate(search_path, network_output.value.item(), history.to_play(), min_max_stats)
 
     def select_child(self, node, min_max_stats):
         _, action, child = max((self.ucb_score(node, child, min_max_stats), action, child)
