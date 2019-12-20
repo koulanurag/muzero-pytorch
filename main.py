@@ -25,6 +25,7 @@ if __name__ == '__main__':
     parser.add_argument('--render', action='store_true', default=False, help='Renders the environment')
     parser.add_argument('--force', action='store_true', default=False, help='Overrides past results')
     parser.add_argument('--seed', type=int, default=0, help='seed (default: %(default)s)')
+    parser.add_argument('--test_episodes', type=int, default=10, help='Evaluation episode count (default: %(default)s)')
     parser.add_argument('--log_suffix', type=str, default='',
                         help='Log Suffix Attached to the resulting directory (default: %(default)s)')
 
@@ -62,8 +63,8 @@ if __name__ == '__main__':
 
         elif args.opr == 'test':
             assert os.path.exists(muzero_config.model_path), 'model not found at {}'.format(muzero_config.model_path)
-            model = muzero_config.model_fn()
-            model.load_state_dict(torch.load(muzero_config.model_path))
+            model = muzero_config.get_uniform_network().to('cpu')
+            model.load_state_dict(torch.load(muzero_config.model_path, map_location=torch.device('cpu')))
             test_score = test(muzero_config, model, args.test_episodes, device='cpu', render=args.render)
             logger.info('Test Score: {}'.format(test_score))
         else:
