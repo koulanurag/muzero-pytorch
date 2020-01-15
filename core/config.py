@@ -22,6 +22,7 @@ class BaseMuZeroConfig(object):
                  lr_decay_steps: float,
                  window_size: int = int(1e6),
                  value_loss_coeff: float = 1, ):
+
         # Self-Play
         self.action_space_size = None
         self.num_actors = num_actors
@@ -57,21 +58,22 @@ class BaseMuZeroConfig(object):
         self.num_unroll_steps = 5
         self.td_steps = td_steps
         self.value_loss_coeff = value_loss_coeff
+        self.device = 'cpu'
+        self.exp_path = None  # experiment path
+        self.debug = False
+        self.model_path = None
+        self.seed = None
 
+        # optimization control
         self.weight_decay = 1e-4
         self.momentum = 0.9
-
-        # Exponential learning rate schedule
         self.lr_init = lr_init
         self.lr_decay_rate = lr_decay_rate
         self.lr_decay_steps = lr_decay_steps
 
-        self.device, self.exp_path = 'cpu', None
-        self.debug = False
+        # replay buffer
         self.priority_prob_alpha = 1
         self.use_target_model = True
-        self.model_path = None
-        self.seed = None
         self.revisit_policy_search_rate = 0
         self.use_max_priority = None
 
@@ -97,12 +99,6 @@ class BaseMuZeroConfig(object):
             if 'path' not in k and (v is not None):
                 hparams[k] = v
         return hparams
-
-    def disable_priority(self):
-        self.priority_prob_alpha = 0
-
-    def disable_target_model(self):
-        self.use_target_model = False
 
     def set_config(self, args):
         self.set_game(args.env)

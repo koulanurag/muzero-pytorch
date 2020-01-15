@@ -5,6 +5,10 @@ import torch
 
 @ray.remote
 class ReplayBuffer(object):
+    """Reference : DISTRIBUTED PRIORITIZED EXPERIENCE REPLAY
+    Algo. 1 and Algo. 2 in Page-3 of (https://arxiv.org/pdf/1803.00933.pdf
+    """
+
     def __init__(self, capacity, batch_size, prob_alpha=1):
         self.soft_capacity = capacity
         self.batch_size = batch_size

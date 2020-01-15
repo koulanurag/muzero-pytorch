@@ -82,8 +82,8 @@ class Game:
         self.env.close(*args, **kwargs)
 
     def make_target(self, state_index: int, num_unroll_steps: int, td_steps: int, model=None, config=None):
-        # The value target is the discounted root value of the search tree N steps
-        # into the future, plus the discounted sum of all rewards until then.
+        # The value target is the discounted root value of the search tree N steps into the future, plus
+        # the discounted sum of all rewards until then.
         target_values, target_rewards, target_policies = [], [], []
         for current_index in range(state_index, state_index + num_unroll_steps + 1):
             bootstrap_index = current_index + td_steps
@@ -91,6 +91,9 @@ class Game:
                 if model is None:
                     value = self.root_values[bootstrap_index] * self.discount ** td_steps
                 else:
+                    # Reference : Appendix H => Reanalyze
+                    # Note : a target network  based on recent parameters is used to provide a fresher,
+                    # stable n-step bootstrapped target for the value function
                     obs = self.obs(bootstrap_index)
                     obs = torch.tensor(obs, dtype=torch.float32).unsqueeze(0)
                     network_output = model.initial_inference(obs)
@@ -105,6 +108,10 @@ class Game:
                 target_values.append(value)
                 target_rewards.append(self.rewards[current_index])
 
+                # Reference : Appendix H => Reanalyze
+                # Note : MuZero Reanalyze revisits its past time-steps and re-executes its search using the
+                # latest model parameters, potentially resulting in a better quality policy than the original search.
+                # This fresh policy is used as the policy target for 80% of updates during MuZero training
                 if model is not None and np.random.random() <= config.revisit_policy_search_rate:
                     from core.mcts import MCTS, Node
                     root = Node(0)
@@ -121,7 +128,7 @@ class Game:
                 # States past the end of games are treated as absorbing states.
                 target_values.append(0)
                 target_rewards.append(0)
-                # Note: Target policy is  set to 0.
+                # Note: Target policy is  set to 0 so that no policy loss is calculated for them
                 target_policies.append([0 for _ in range(len(self.child_visits[0]))])
 
         return target_values, target_rewards, target_policies

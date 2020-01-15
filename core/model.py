@@ -59,7 +59,14 @@ class BaseMuZeroNet(nn.Module):
                 p.grad = torch.from_numpy(g)
 
     def _value_transformation(self, value):
+        """ Reference : Appendix F => Network Architecture
+        As of now, we are keeping this transformation as identity fun.
+        """
+
         return value
 
     def _reward_transformation(self, reward):
+        """ Reference : Appendix F => Network Architecture
+        As of now, we are keeping this transformation as identity fun.
+        """
         return reward

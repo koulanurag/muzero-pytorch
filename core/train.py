@@ -36,10 +36,15 @@ def _log(config, step_count, loss_data, model, replay_buffer, test_score, best_t
                 summary_writer.add_histogram('after_grad_clip' + '/' + name + '_grad', W.grad.data.cpu().numpy(),
                                              step_count)
                 summary_writer.add_histogram('network_weights' + '/' + name, W.data.cpu().numpy(), step_count)
-        summary_writer.add_histogram('train/replay_buffer_priorities', ray.get(replay_buffer.get_priorities.remote()),
-                                     step_count)
-        summary_writer.add_histogram('train/batch_weight', batch_weights, step_count)
-        summary_writer.add_histogram('train/batch_indices', batch_indices, step_count)
+            summary_writer.add_histogram('train/replay_buffer_priorities',
+                                         ray.get(replay_buffer.get_priorities.remote()),
+                                         step_count)
+            summary_writer.add_histogram('train/batch_weight', batch_weights, step_count)
+            summary_writer.add_histogram('train/batch_indices', batch_indices, step_count)
+            summary_writer.add_histogram('train_data_dist/target_reward', target_reward.flatten(), step_count)
+            summary_writer.add_histogram('train_data_dist/target_value', target_value.flatten(), step_count)
+            summary_writer.add_histogram('train_data_dist/pred_reward', pred_reward.flatten(), step_count)
+            summary_writer.add_histogram('train_data_dist/pred_value', pred_value.flatten(), step_count)
 
         summary_writer.add_scalar('train/loss', loss, step_count)
         summary_writer.add_scalar('train/weighted_loss', weighted_loss, step_count)
@@ -50,10 +55,6 @@ def _log(config, step_count, loss_data, model, replay_buffer, test_score, best_t
                                   step_count)
         summary_writer.add_scalar('train/replay_buffer_len', ray.get(replay_buffer.size.remote()), step_count)
         summary_writer.add_scalar('train/lr', lr, step_count)
-        summary_writer.add_histogram('train_data_dist/target_reward', target_reward.flatten(), step_count)
-        summary_writer.add_histogram('train_data_dist/target_value', target_value.flatten(), step_count)
-        summary_writer.add_histogram('train_data_dist/pred_reward', pred_reward.flatten(), step_count)
-        summary_writer.add_histogram('train_data_dist/pred_value', pred_value.flatten(), step_count)
 
         if worker_reward is not None:
             summary_writer.add_scalar('train/worker_reward', worker_reward, step_count)
@@ -116,8 +117,6 @@ class DataWorker(object):
         model = self.config.get_uniform_network()
         with torch.no_grad():
             while ray.get(self.shared_storage.get_counter.remote()) < self.config.training_steps:
-                # i = 0
-                # while i < 2:
                 model.set_weights(ray.get(self.shared_storage.get_weights.remote()))
                 env = self.config.new_game(self.config.seed + self.rank)
 
@@ -153,7 +152,6 @@ class DataWorker(object):
                                                     priorities=None if self.config.use_max_priority else priorities)
                 # Todo: refactor with env attributes to reduce variables
                 self.shared_storage.set_data_worker_logs.remote(eps_steps, eps_reward)
-                # i += 1
 
 
 def update_weights(model, target_model, optimizer, replay_buffer, config):
@@ -187,15 +185,11 @@ def update_weights(model, target_model, optimizer, replay_buffer, config):
         policy_loss += -(torch.log_softmax(policy_logits, dim=1) * target_policy[:, step_i + 1]).sum(1)
         value_loss += config.scalar_value_loss(value.squeeze(-1), target_value[:, step_i + 1])
         reward_loss += config.scalar_reward_loss(reward.squeeze(-1), target_reward[:, step_i])
-
-        # collecting for logging
-        predicted_values = torch.cat((predicted_values, value))
-        if predicted_rewards is not None:
-            predicted_rewards = torch.cat((predicted_rewards, reward))
-        else:
-            predicted_rewards = reward
-
         hidden_state.register_hook(lambda grad: grad * 0.5)
+
+        # collected for logging
+        predicted_values = torch.cat((predicted_values, value))
+        predicted_rewards = reward if predicted_rewards is None else torch.cat((predicted_rewards, reward))
 
     # optimize
     loss = (policy_loss + config.value_loss_coeff * value_loss + reward_loss)
