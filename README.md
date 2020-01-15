@@ -19,7 +19,7 @@ pip install -r requirements.txt
 | `--env`|             Name of the environment|
 | `--result_dir` | Directory Path to store results |
 | `--case {atari,classic_control}` |It's used for switching between different domains(default: None)|
-| `--opr {train,test}` ||
+| `--opr {train,test}` | select the operation to be performed|
 | `--no_cuda`           |  no cuda usage (default: False)|
 | `--debug`              | If enables, logs gradient of the network (default:False)|
 | `--render`             | Renders the environment (default: False)|
@@ -27,9 +27,8 @@ pip install -r requirements.txt
 | `--seed`            |seed (default: 0)|
 | `--value_loss_coeff` |    scale for value loss (default: None)|
 | `--revisit_policy_search_rate` |Rate at which target policy is re-estimated (default:None)|
-| `--use_max_priority`    | Forces usage of max priority for new data (only valid if no_priority=False) (default: False)|
-| `--no_priority`         | Forces Uniform data sampling(default: False)|
+| `--use_max_priority`    | Forces max priority assignment for new incoming data in replay buffer (only valid if no_priority=False) (default: False) |
+| `--no_priority`         | Forces Uniform data sampling in replay buffer (default: False)|
 | `--no_target_model`     | Doesn't use target model for bootstrap value estimation (default: False)|
 | `--test_episodes` |Evaluation episode count (default: 10)|
-
 
