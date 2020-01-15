@@ -1,15 +1,19 @@
+import os
+
 import torch
 
 from .mcts import MCTS, Node
 from .utils import select_action
 
 
-def test(config, model, episodes, device, render):
+def test(config, model, episodes, device, render, save_video=False):
     model.to(device)
     model.eval()
 
     test_reward = 0
-    env = config.new_game()
+    save_path = os.path.join(config.exp_path, 'recordings')
+    env = config.new_game(save_video=save_video, save_path=save_path,
+                          video_callable=lambda episode_id: True)
     with torch.no_grad():
         for ep_i in range(episodes):
             done = False
@@ -19,12 +23,19 @@ def test(config, model, episodes, device, render):
                 if render:
                     env.render()
                 root = Node(0)
-                obs = torch.FloatTensor(obs).to(config.device).unsqueeze(0)
+                obs = torch.FloatTensor(obs).to(device).unsqueeze(0)
                 root.expand(env.to_play(), env.legal_actions(), model.initial_inference(obs))
                 MCTS(config).run(root, env.action_history(), model)
                 action = select_action(root, temperature=1, deterministic=True)
                 obs, reward, done, info = env.step(action.index)
                 ep_reward += reward
             test_reward += ep_reward
+
+    # convert to gif for ease of insertion into google slides
+    if save_video:
+        for f in os.listdir(save_path):
+            if 'mp4' in f:
+                f = os.path.join(save_path, f)
+                os.system('ffmpeg -i ' + f + ' ' + f.split('.mp4')[0] + '.gif')
 
     return test_reward / episodes

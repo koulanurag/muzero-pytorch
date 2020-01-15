@@ -8,6 +8,28 @@ _Note: This implementation has just been tested on CartPole-v1 and would require
 cd muzero-pytorch
 pip install -r requirements.txt
 ```
+
 ## Usage:
+
 * Train: ```python main.py --env CartPole-v1 --case classic_control --opr train --force```
 * Test: ```python main.py --env CartPole-v1 --case classic_control --opr test```
+
+|Optional Arguments | Description|
+|:-------------|:-------------|
+| `--env`|             Name of the environment|
+| `--result_dir` | Directory Path to store results |
+| `--case {atari,classic_control}` |It's used for switching between different domains(default: None)|
+| `--opr {train,test}` ||
+| `--no_cuda`           |  no cuda usage (default: False)|
+| `--debug`              | If enables, logs gradient of the network (default:False)|
+| `--render`             | Renders the environment (default: False)|
+| `--force`             |  Overrides past results (default: False)|
+| `--seed`            |seed (default: 0)|
+| `--value_loss_coeff` |    scale for value loss (default: None)|
+| `--revisit_policy_search_rate` |Rate at which target policy is re-estimated (default:None)|
+| `--use_max_priority`    | Forces usage of max priority for new data (only valid if no_priority=False) (default: False)|
+| `--no_priority`         | Forces Uniform data sampling(default: False)|
+| `--no_target_model`     | Doesn't use target model for bootstrap value estimation (default: False)|
+| `--test_episodes` |Evaluation episode count (default: 10)|
+
+

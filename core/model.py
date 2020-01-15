@@ -30,11 +30,14 @@ class BaseMuZeroNet(nn.Module):
     def initial_inference(self, obs) -> NetworkOutput:
         state = self.representation(obs)
         actor_logit, value = self.prediction(state)
+        value = self._value_transformation(value)
         return NetworkOutput(value, 0, actor_logit, state)
 
     def recurrent_inference(self, hidden_state, action) -> NetworkOutput:
         state, reward = self.dynamics(hidden_state, action)
         actor_logit, value = self.prediction(state)
+        value = self._value_transformation(value)
+        reward = self._reward_transformation(reward)
         return NetworkOutput(value, reward, actor_logit, state)
 
     def get_weights(self):
@@ -54,3 +57,9 @@ class BaseMuZeroNet(nn.Module):
         for g, p in zip(gradients, self.parameters()):
             if g is not None:
                 p.grad = torch.from_numpy(g)
+
+    def _value_transformation(self, value):
+        return value
+
+    def _reward_transformation(self, reward):
+        return reward
