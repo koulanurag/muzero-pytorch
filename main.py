@@ -24,7 +24,7 @@ if __name__ == '__main__':
     parser.add_argument('--no_cuda', action='store_true', default=False,
                         help='no cuda usage (default: %(default)s)')
     parser.add_argument('--debug', action='store_true', default=False,
-                        help='If enables, logs gradient of the network (default: %(default)s)')
+                        help='If enabled, logs additional values in the summary-writer (default: %(default)s)')
     parser.add_argument('--render', action='store_true', default=False,
                         help='Renders the environment (default: %(default)s)')
     parser.add_argument('--force', action='store_true', default=False,
