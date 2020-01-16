@@ -27,7 +27,7 @@ pip install -r requirements.txt
 | `--use_priority`               |Uses priority for  data sampling in replay buffer. Also, priority for new data is calculated based on loss (default: False)|
 | `--use_max_priority`           |Forces max priority assignment for new incoming data in replay buffer (only valid if ```--use_priority``` is enabled) (default: False) |
 | `--use_target_model`           |Use target model for bootstrap value estimation (default: False)|
-| `--result_dir`                 |Directory Path to store results (defaut: current working directory|
+| `--result_dir`                 |Directory Path to store results (defaut: current working directory)|
 | `--no_cuda`                    |no cuda usage (default: False)|
 | `--debug`                      |If enables, logs additional values  (default:False)|
 | `--render`                     |Renders the environment (default: False)|
