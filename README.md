@@ -37,8 +37,8 @@ pip install -r requirements.txt
 
 ```Note: default: None => Values are loaded from the corresponding config```
 
-
-### CartPole-v1 Result
+## Training
+### CartPole-v1
 - Curves represents model evaluation for 5 episodes at 100 step training interval. 
 - Also, each curve has mean scores over 3 runs (seeds : [0,100,200])
 
