@@ -103,11 +103,11 @@ class BaseMuZeroConfig(object):
     def set_config(self, args):
         self.set_game(args.env)
         self.seed = args.seed
-        self.priority_prob_alpha = 0 if args.no_priority else 1
-        self.use_target_model = not args.no_target_model
+        self.priority_prob_alpha = 1 if args.use_priority else 0
+        self.use_target_model = args.use_target_model
         self.debug = args.debug
         self.device = args.device
-        self.use_max_priority = args.use_max_priority
+        self.use_max_priority = (args.use_max_priority and args.use_priority)
 
         if args.value_loss_coeff is not None:
             self.value_loss_coeff = args.value_loss_coeff
@@ -118,10 +118,10 @@ class BaseMuZeroConfig(object):
         self.exp_path = os.path.join(args.result_dir, args.env,
                                      'revisit_rate_{}'.format(self.revisit_policy_search_rate),
                                      'val_coeff_{}'.format(self.value_loss_coeff),
-                                     'no_target' if self.use_target_model else 'with_target',
-                                     'no_prio' if args.no_priority else 'with_prio',
-                                     'max_prio' if args.use_max_priority else 'no_max_prio',
-                                     'seed_{}'.format(args.seed))
+                                     'with_target' if self.use_target_model else 'no_target',
+                                     'with_prio' if args.use_priority else 'no_prio',
+                                     'max_prio' if self.use_max_priority else 'no_max_prio',
+                                     'seed_{}'.format(self.seed))
 
         self.model_path = os.path.join(self.exp_path, 'model.p')
         return self.exp_path

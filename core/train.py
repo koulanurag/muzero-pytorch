@@ -178,10 +178,6 @@ def update_weights(model, target_model, optimizer, replay_buffer, config):
     gradient_scale = 1 / config.num_unroll_steps
     for step_i in range(config.num_unroll_steps):
         value, reward, policy_logits, hidden_state = model.recurrent_inference(hidden_state, action_batch[:, step_i])
-        # policy_loss += gradient_scale * -(torch.log_softmax(policy_logits, dim=1) * target_policy[:, step_i + 1]).sum(1)
-        # value_loss += gradient_scale * config.scalar_loss(value.squeeze(-1), target_value[:, step_i + 1])
-        # reward_loss += gradient_scale * config.scalar_loss(reward.squeeze(-1), target_reward[:, step_i])
-
         policy_loss += -(torch.log_softmax(policy_logits, dim=1) * target_policy[:, step_i + 1]).sum(1)
         value_loss += config.scalar_value_loss(value.squeeze(-1), target_value[:, step_i + 1])
         reward_loss += config.scalar_reward_loss(reward.squeeze(-1), target_reward[:, step_i])
@@ -193,8 +189,8 @@ def update_weights(model, target_model, optimizer, replay_buffer, config):
 
     # optimize
     loss = (policy_loss + config.value_loss_coeff * value_loss + reward_loss)
-    loss.register_hook(lambda grad: grad * gradient_scale)
     weighted_loss = (weights * loss).mean()
+    weighted_loss.register_hook(lambda grad: grad * gradient_scale)
     loss = loss.mean()
 
     optimizer.zero_grad()

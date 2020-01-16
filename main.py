@@ -24,7 +24,8 @@ if __name__ == '__main__':
     parser.add_argument('--no_cuda', action='store_true', default=False,
                         help='no cuda usage (default: %(default)s)')
     parser.add_argument('--debug', action='store_true', default=False,
-                        help='If enabled, logs additional values in the summary-writer (default: %(default)s)')
+                        help='If enabled, logs additional values  '
+                             '(gradients, target value, reward distribution, etc.) (default: %(default)s)')
     parser.add_argument('--render', action='store_true', default=False,
                         help='Renders the environment (default: %(default)s)')
     parser.add_argument('--force', action='store_true', default=False,
@@ -36,12 +37,13 @@ if __name__ == '__main__':
     parser.add_argument('--revisit_policy_search_rate', type=float, default=None,
                         help='Rate at which target policy is re-estimated (default: %(default)s)')
     parser.add_argument('--use_max_priority', action='store_true', default=False,
-                        help='Forces usage of max priority for new data (only valid if no_priority=False)'
-                             ' (default: %(default)s)')
-    parser.add_argument('--no_priority', action='store_true', default=False,
-                        help='Forces Uniform data sampling(default: %(default)s)')
-    parser.add_argument('--no_target_model', action='store_true', default=False,
-                        help='Doesn\'t use target model for bootstrap value estimation (default: %(default)s)')
+                        help='Forces max priority assignment for new incoming data in replay buffer '
+                             '(only valid if --use_priority is enabled) (default: %(default)s)')
+    parser.add_argument('--use_priority', action='store_true', default=False,
+                        help='Uses priority for data sampling in replay buffer. '
+                             'Also, priority for new data is calculated based on loss (default: False)')
+    parser.add_argument('--use_target_model', action='store_true', default=False,
+                        help='Use target model for bootstrap value estimation (default: %(default)s)')
     parser.add_argument('--test_episodes', type=int, default=10,
                         help='Evaluation episode count (default: %(default)s)')
 

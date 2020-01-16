@@ -10,30 +10,32 @@ pip install -r requirements.txt
 ```
 
 ### Usage:
-* Train: ```python main.py --env CartPole-v1 --case classic_control --opr train --force```
+* Train: ```python main.py --env CartPole-v1 --case classic_control --opr train --force ```
 * Test: ```python main.py --env CartPole-v1 --case classic_control --opr test```
 * Visualize results : ```tensorboard --logdir=<result_dir_path>```
 
 |Required Arguments | Description|
 |:-------------|:-------------|
-| `--env`|             Name of the environment|
+| `--env`                          |Name of the environment|
 | `--case {atari,classic_control}` |It's used for switching between different domains(default: None)|
-| `--opr {train,test}` | select the operation to be performed|
+| `--opr {train,test}`             |select the operation to be performed|
 
 |Optional Arguments | Description|
 |:-------------|:-------------|
-| `--value_loss_coeff` |    scale for value loss (default: None)|
+| `--value_loss_coeff`           |Scale for value loss (default: None)|
 | `--revisit_policy_search_rate` |Rate at which target policy is re-estimated (default:None)|
-| `--use_max_priority`    | Forces max priority assignment for new incoming data in replay buffer (only valid if no_priority=False) (default: False) |
-| `--no_priority`         | Forces Uniform data sampling in replay buffer (default: False)|
-| `--no_target_model`     | Doesn't use target model for bootstrap value estimation (default: False)|
-| `--result_dir` | Directory Path to store results |
-| `--no_cuda`           |  no cuda usage (default: False)|
-| `--debug`              | If enables, logs gradient of the network (default:False)|
-| `--render`             | Renders the environment (default: False)|
-| `--force`             |  Overrides past results (default: False)|
-| `--seed`            |seed (default: 0)|
-| `--test_episodes` |Evaluation episode count (default: 10)|
+| `--use_priority`               |Uses priority for  data sampling in replay buffer. Also, priority for new data is calculated based on loss (default: False)|
+| `--use_max_priority`           |Forces max priority assignment for new incoming data in replay buffer (only valid if ```--use_priority``` is enabled) (default: False) |
+| `--use_target_model`           |Use target model for bootstrap value estimation (default: False)|
+| `--result_dir`                 |Directory Path to store results (defaut: current working directory|
+| `--no_cuda`                    |no cuda usage (default: False)|
+| `--debug`                      |If enables, logs additional values  (default:False)|
+| `--render`                     |Renders the environment (default: False)|
+| `--force`                      |Overrides past results (default: False)|
+| `--seed`                       |seed (default: 0)|
+| `--test_episodes`              |Evaluation episode count (default: 10)|
+
+```Note: default: None => Values are loaded from the corresponding config```
 
 
 ### CartPole-v1 Result
