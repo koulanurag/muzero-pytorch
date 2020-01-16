@@ -3,7 +3,7 @@ import os
 from .game import Game
 
 
-class MuZeroConfig(object):
+class BaseMuZeroConfig(object):
 
     def __init__(self,
                  training_steps: int,
@@ -18,8 +18,11 @@ class MuZeroConfig(object):
                  td_steps: int,
                  num_actors: int,
                  lr_init: float,
+                 lr_decay_rate: float,
                  lr_decay_steps: float,
-                 window_size: int = int(1e6)):
+                 window_size: int = int(1e6),
+                 value_loss_coeff: float = 1, ):
+
         # Self-Play
         self.action_space_size = None
         self.num_actors = num_actors
@@ -41,9 +44,8 @@ class MuZeroConfig(object):
         self.pb_c_base = 19652
         self.pb_c_init = 1.25
 
-        # If we already have some information about which values occur in the
-        # environment, we can use them to initialize the rescaling.
-        # This is not strictly necessary, but establishes identical behaviour to
+        # If we already have some information about which values occur in the environment, we can use them to
+        # initialize the rescaling. This is not strictly necessary, but establishes identical behaviour to
         # AlphaZero in board games.
         self.max_value_bound = None
         self.min_value_bound = None
@@ -55,16 +57,25 @@ class MuZeroConfig(object):
         self.batch_size = batch_size
         self.num_unroll_steps = 5
         self.td_steps = td_steps
+        self.value_loss_coeff = value_loss_coeff
+        self.device = 'cpu'
+        self.exp_path = None  # experiment path
+        self.debug = False
+        self.model_path = None
+        self.seed = None
 
+        # optimization control
         self.weight_decay = 1e-4
         self.momentum = 0.9
-
-        # Exponential learning rate schedule
         self.lr_init = lr_init
-        self.lr_decay_rate = 0.1
+        self.lr_decay_rate = lr_decay_rate
         self.lr_decay_steps = lr_decay_steps
 
-        self.device, self.exp_path = 'cpu', None
+        # replay buffer
+        self.priority_prob_alpha = 1
+        self.use_target_model = True
+        self.revisit_policy_search_rate = 0
+        self.use_max_priority = None
 
     def visit_softmax_temperature_fn(self, num_moves, trained_steps):
         raise NotImplementedError
@@ -72,16 +83,9 @@ class MuZeroConfig(object):
     def set_game(self, env_name):
         raise NotImplementedError
 
-    def new_game(self, seed=None) -> Game:
+    def new_game(self, seed=None, save_video=False, save_path=None, video_callable=None) -> Game:
         """ returns a new instance of the game"""
         raise NotImplementedError
-
-    def set_device(self, device):
-        self.device = device
-
-    def set_exp_path(self, exp_path):
-        self.exp_path = exp_path
-        self.model_path = os.path.join(exp_path, 'model.p')
 
     def get_uniform_network(self):
         raise NotImplementedError
@@ -95,3 +99,29 @@ class MuZeroConfig(object):
             if 'path' not in k and (v is not None):
                 hparams[k] = v
         return hparams
+
+    def set_config(self, args):
+        self.set_game(args.env)
+        self.seed = args.seed
+        self.priority_prob_alpha = 1 if args.use_priority else 0
+        self.use_target_model = args.use_target_model
+        self.debug = args.debug
+        self.device = args.device
+        self.use_max_priority = (args.use_max_priority and args.use_priority)
+
+        if args.value_loss_coeff is not None:
+            self.value_loss_coeff = args.value_loss_coeff
+
+        if args.revisit_policy_search_rate is not None:
+            self.revisit_policy_search_rate = args.revisit_policy_search_rate
+
+        self.exp_path = os.path.join(args.result_dir, args.env,
+                                     'revisit_rate_{}'.format(self.revisit_policy_search_rate),
+                                     'val_coeff_{}'.format(self.value_loss_coeff),
+                                     'with_target' if self.use_target_model else 'no_target',
+                                     'with_prio' if args.use_priority else 'no_prio',
+                                     'max_prio' if self.use_max_priority else 'no_max_prio',
+                                     'seed_{}'.format(self.seed))
+
+        self.model_path = os.path.join(self.exp_path, 'model.p')
+        return self.exp_path
