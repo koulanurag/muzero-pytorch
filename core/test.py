@@ -31,11 +31,4 @@ def test(config, model, episodes, device, render, save_video=False):
                 ep_reward += reward
             test_reward += ep_reward
 
-    # convert to gif for ease of insertion into google slides
-    if save_video:
-        for f in os.listdir(save_path):
-            if 'mp4' in f:
-                f = os.path.join(save_path, f)
-                os.system('ffmpeg -i ' + f + ' ' + f.split('.mp4')[0] + '.gif')
-
     return test_reward / episodes

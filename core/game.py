@@ -157,5 +157,5 @@ class Game:
     def __len__(self):
         return len(self.rewards)
 
-    def render(self):
-        self.env.render()
+    def render(self, *args, **kwargs):
+        self.env.render(*args, **kwargs)
