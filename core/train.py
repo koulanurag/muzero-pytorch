@@ -9,15 +9,21 @@ from .mcts import MCTS, Node
 from .replay_buffer import ReplayBuffer
 from .test import test
 from .utils import select_action
+import time
 
 train_logger = logging.getLogger('train')
 test_logger = logging.getLogger('train_test')
 
 
-def _log(config, step_count, loss_data, model, replay_buffer, test_score, best_test_score, lr, worker_logs,
-         summary_writer):
-    weighted_loss, loss, policy_loss, reward_loss, value_loss, target_reward, target_value, pred_reward, pred_value, batch_weights, batch_indices = loss_data
-    worker_reward, worker_eps_len = worker_logs
+def _log(config, step_count, log_data, model, replay_buffer, lr, worker_logs, summary_writer):
+    loss_data, td_data, priority_data = log_data
+    weighted_loss, loss, policy_loss, reward_loss, value_loss = loss_data
+    target_reward, target_value, trans_target_reward, trans_target_value, target_reward_phi, target_value_phi, \
+    pred_reward, pred_value, target_policies, predicted_policies = td_data
+    batch_weights, batch_indices = priority_data
+    worker_reward, worker_eps_len, test_score, temperature = worker_logs
+    best_test_score = 0
+
     replay_episodes_collected = ray.get(replay_buffer.episodes_collected.remote())
     replay_buffer_size = ray.get(replay_buffer.size.remote())
     _msg = '#{:<10} Loss: {:<8.3f} [weighted Loss:{:<8.3f} Policy Loss: {:<8.3f} Value Loss: {:<8.3f} ' \
@@ -36,15 +42,27 @@ def _log(config, step_count, loss_data, model, replay_buffer, test_score, best_t
                 summary_writer.add_histogram('after_grad_clip' + '/' + name + '_grad', W.grad.data.cpu().numpy(),
                                              step_count)
                 summary_writer.add_histogram('network_weights' + '/' + name, W.data.cpu().numpy(), step_count)
-            summary_writer.add_histogram('train/replay_buffer_priorities',
-                                         ray.get(replay_buffer.get_priorities.remote()),
-                                         step_count)
-            summary_writer.add_histogram('train/batch_weight', batch_weights, step_count)
-            summary_writer.add_histogram('train/batch_indices', batch_indices, step_count)
-            summary_writer.add_histogram('train_data_dist/target_reward', target_reward.flatten(), step_count)
-            summary_writer.add_histogram('train_data_dist/target_value', target_value.flatten(), step_count)
-            summary_writer.add_histogram('train_data_dist/pred_reward', pred_reward.flatten(), step_count)
-            summary_writer.add_histogram('train_data_dist/pred_value', pred_value.flatten(), step_count)
+            pass
+        summary_writer.add_histogram('replay_data/replay_buffer_priorities',
+                                     ray.get(replay_buffer.get_priorities.remote()),
+                                     step_count)
+        summary_writer.add_histogram('replay_data/batch_weight', batch_weights, step_count)
+        summary_writer.add_histogram('replay_data/batch_indices', batch_indices, step_count)
+        summary_writer.add_histogram('train_data_dist/target_reward', target_reward.flatten(), step_count)
+        summary_writer.add_histogram('train_data_dist/target_value', target_value.flatten(), step_count)
+        summary_writer.add_histogram('train_data_dist/transformed_target_reward', trans_target_reward.flatten(),
+                                     step_count)
+        summary_writer.add_histogram('train_data_dist/transformed_target_value', trans_target_value.flatten(),
+                                     step_count)
+        summary_writer.add_histogram('train_data_dist/target_reward_phi', target_reward_phi.unique().flatten(),
+                                     step_count)
+        summary_writer.add_histogram('train_data_dist/target_value_phi', target_value_phi.unique().flatten(),
+                                     step_count)
+        summary_writer.add_histogram('train_data_dist/pred_reward', pred_reward.flatten(), step_count)
+        summary_writer.add_histogram('train_data_dist/pred_value', pred_value.flatten(), step_count)
+        summary_writer.add_histogram('train_data_dist/pred_value', pred_value.flatten(), step_count)
+        summary_writer.add_histogram('train_data_dist/pred_policies', predicted_policies.flatten(), step_count)
+        summary_writer.add_histogram('train_data_dist/target_policies', target_policies.flatten(), step_count)
 
         summary_writer.add_scalar('train/loss', loss, step_count)
         summary_writer.add_scalar('train/weighted_loss', weighted_loss, step_count)
@@ -57,8 +75,9 @@ def _log(config, step_count, loss_data, model, replay_buffer, test_score, best_t
         summary_writer.add_scalar('train/lr', lr, step_count)
 
         if worker_reward is not None:
-            summary_writer.add_scalar('train/worker_reward', worker_reward, step_count)
-            summary_writer.add_scalar('train/worker_eps_len', worker_eps_len, step_count)
+            summary_writer.add_scalar('workers/reward', worker_reward, step_count)
+            summary_writer.add_scalar('workers/eps_len', worker_eps_len, step_count)
+            summary_writer.add_scalar('workers/temperature', temperature, step_count)
 
         if test_score is not None:
             if test_score == best_test_score:
@@ -72,7 +91,9 @@ class SharedStorage(object):
         self.step_counter = 0
         self.model = model
         self.reward_log = []
+        self.test_log = []
         self.eps_lengths = []
+        self.temperature_log = []
 
     def get_weights(self):
         return self.model.get_weights()
@@ -86,23 +107,36 @@ class SharedStorage(object):
     def get_counter(self):
         return self.step_counter
 
-    def set_data_worker_logs(self, eps_len, eps_reward):
+    def set_data_worker_logs(self, eps_len, eps_reward, temperature):
         self.eps_lengths.append(eps_len)
         self.reward_log.append(eps_reward)
+        self.temperature_log.append(temperature)
 
-    def get_data_worker_logs(self):
+    def add_test_log(self, score):
+        self.test_log.append(score)
+
+    def get_worker_logs(self):
         if len(self.reward_log) > 0:
             reward = sum(self.reward_log) / len(self.reward_log)
             eps_lengths = sum(self.eps_lengths) / len(self.eps_lengths)
+            temperature = sum(self.temperature_log) / len(self.temperature_log)
 
             self.reward_log = []
             self.eps_lengths = []
+            self.temperature_log = []
 
         else:
             reward = None
             eps_lengths = None
+            temperature = None
 
-        return reward, eps_lengths
+        if len(self.test_log) > 0:
+            test_score = sum(self.test_log) / len(self.test_log)
+            self.test_log = []
+        else:
+            test_score = None
+
+        return reward, eps_lengths, test_score, temperature
 
 
 @ray.remote
@@ -118,6 +152,7 @@ class DataWorker(object):
         with torch.no_grad():
             while ray.get(self.shared_storage.get_counter.remote()) < self.config.training_steps:
                 model.set_weights(ray.get(self.shared_storage.get_weights.remote()))
+                model.eval()
                 env = self.config.new_game(self.config.seed + self.rank)
 
                 obs = env.reset()
@@ -151,7 +186,7 @@ class DataWorker(object):
                 self.replay_buffer.save_game.remote(env,
                                                     priorities=None if self.config.use_max_priority else priorities)
                 # Todo: refactor with env attributes to reduce variables
-                self.shared_storage.set_data_worker_logs.remote(eps_steps, eps_reward)
+                self.shared_storage.set_data_worker_logs.remote(eps_steps, eps_reward, _temperature)
 
 
 def update_weights(model, target_model, optimizer, replay_buffer, config):
@@ -167,11 +202,24 @@ def update_weights(model, target_model, optimizer, replay_buffer, config):
     target_policy = target_policy.to(config.device)
     weights = weights.to(config.device)
 
-    value, _, policy_logits, hidden_state = model.initial_inference(obs_batch)
-    predicted_values, predicted_rewards = value, None
+    # transform targets to categorical representation
+    # Reference:  Appendix F
+    transformed_target_reward = config.scalar_transform(target_reward)
+    target_reward_phi = config.reward_phi(transformed_target_reward)
+    transformed_target_value = config.scalar_transform(target_value)
+    target_value_phi = config.value_phi(transformed_target_value)
 
-    value_loss = config.scalar_loss(value.squeeze(-1), target_value[:, 0])
-    new_priority = L1Loss(reduction='none')(value.squeeze(-1), target_value[:, 0]).data.cpu().numpy() + 1e-5
+    value, _, policy_logits, hidden_state = model.initial_inference(obs_batch)
+    scaled_value = config.inverse_value_transform(value)
+    # Note: Following line is just for logging.
+    predicted_values, predicted_rewards, predicted_policies = scaled_value, None, torch.softmax(policy_logits, dim=1)
+
+    # Reference: Appendix G
+    new_priority = L1Loss(reduction='none')(scaled_value.squeeze(-1), target_value[:, 0])
+    new_priority += 1e-5
+    new_priority = new_priority.data.cpu().numpy()
+
+    value_loss = config.scalar_value_loss(value, target_value_phi[:, 0])
     policy_loss = -(torch.log_softmax(policy_logits, dim=1) * target_policy[:, 0]).sum(1)
     reward_loss = torch.zeros(config.batch_size, device=config.device)
 
@@ -179,13 +227,16 @@ def update_weights(model, target_model, optimizer, replay_buffer, config):
     for step_i in range(config.num_unroll_steps):
         value, reward, policy_logits, hidden_state = model.recurrent_inference(hidden_state, action_batch[:, step_i])
         policy_loss += -(torch.log_softmax(policy_logits, dim=1) * target_policy[:, step_i + 1]).sum(1)
-        value_loss += config.scalar_value_loss(value.squeeze(-1), target_value[:, step_i + 1])
-        reward_loss += config.scalar_reward_loss(reward.squeeze(-1), target_reward[:, step_i])
+        value_loss += config.scalar_value_loss(value, target_value_phi[:, step_i + 1])
+        reward_loss += config.scalar_reward_loss(reward, target_reward_phi[:, step_i])
         hidden_state.register_hook(lambda grad: grad * 0.5)
 
         # collected for logging
-        predicted_values = torch.cat((predicted_values, value))
-        predicted_rewards = reward if predicted_rewards is None else torch.cat((predicted_rewards, reward))
+        predicted_values = torch.cat((predicted_values, config.inverse_value_transform(value)))
+        scaled_rewards = config.inverse_reward_transform(reward)
+        predicted_rewards = scaled_rewards if predicted_rewards is None else torch.cat((predicted_rewards,
+                                                                                        scaled_rewards))
+        predicted_policies = torch.cat((predicted_policies, torch.softmax(policy_logits, dim=1)))
 
     # optimize
     loss = (policy_loss + config.value_loss_coeff * value_loss + reward_loss)
@@ -201,8 +252,15 @@ def update_weights(model, target_model, optimizer, replay_buffer, config):
     # update priorities
     replay_buffer.update_priorities.remote(indices, new_priority)
 
-    return weighted_loss.item(), loss.item(), policy_loss.mean().item(), reward_loss.mean().item(), \
-           value_loss.mean().item(), target_reward, target_value, predicted_rewards, predicted_values, weights, indices
+    # packing data for logging
+    loss_data = (weighted_loss.item(), loss.item(), policy_loss.mean().item(), reward_loss.mean().item(),
+                 value_loss.mean().item())
+    td_data = (target_reward, target_value, transformed_target_reward, transformed_target_value,
+               target_reward_phi, target_value_phi, predicted_rewards, predicted_values,
+               target_policy, predicted_policies)
+    priority_data = (weights, indices)
+
+    return loss_data, td_data, priority_data
 
 
 def adjust_lr(config, optimizer, step_count):
@@ -220,7 +278,8 @@ def _train(config, shared_storage, replay_buffer, summary_writer):
                           weight_decay=config.weight_decay)
     test_model = config.get_uniform_network().to(config.device)
     target_model = config.get_uniform_network().to('cpu')
-    best_test_score = None
+    test_model.eval()
+    target_model.eval()
 
     # wait for replay buffer to be non-empty
     while ray.get(replay_buffer.size.remote()) == 0:
@@ -233,24 +292,34 @@ def _train(config, shared_storage, replay_buffer, summary_writer):
         if step_count % config.checkpoint_interval == 0:
             shared_storage.set_weights.remote(model.get_weights())
             target_model.set_weights(model.get_weights())
+            target_model.eval()
 
-        loss_data = update_weights(model, target_model, optimizer, replay_buffer, config)
+        log_data = update_weights(model, target_model, optimizer, replay_buffer, config)
 
-        test_score = None
-        if step_count % config.test_interval == 0:
-            test_model.set_weights(model.get_weights())
-            test_score = test(config, test_model, config.test_episodes, 'cpu', False)
-            if best_test_score is None or test_score >= best_test_score:
-                best_test_score = test_score
-                torch.save(model.state_dict(), config.model_path)
-
-        _log(config, step_count, loss_data, model, replay_buffer, test_score, best_test_score, lr,
-             ray.get(shared_storage.get_data_worker_logs.remote()), summary_writer)
+        _log(config, step_count, log_data, model, replay_buffer, lr,
+             ray.get(shared_storage.get_worker_logs.remote()), summary_writer)
 
         if step_count % 50 == 0:
             replay_buffer.remove_to_fit.remote()
 
     shared_storage.set_weights.remote(model.get_weights())
+
+
+@ray.remote
+def _test(config, shared_storage):
+    test_model = config.get_uniform_network().to('cpu')
+    best_test_score = None
+    while ray.get(shared_storage.get_counter.remote()) < config.training_steps:
+        test_model.set_weights(ray.get(shared_storage.get_weights.remote()))
+        test_model.eval()
+
+        test_score = test(config, test_model, config.test_episodes, 'cpu', False)
+        if best_test_score is None or test_score >= best_test_score:
+            best_test_score = test_score
+            torch.save(test_model.state_dict(), config.model_path)
+
+        shared_storage.add_test_log.remote(test_score)
+        time.sleep(30)
 
 
 def train(config, summary_writer=None):
@@ -259,6 +328,7 @@ def train(config, summary_writer=None):
                                         prob_alpha=config.priority_prob_alpha)
     workers = [DataWorker.remote(rank, config, storage, replay_buffer).run.remote()
                for rank in range(0, config.num_actors)]
+    workers += [_test.remote(config, storage)]
     _train(config, storage, replay_buffer, summary_writer)
     ray.wait(workers, len(workers))
 

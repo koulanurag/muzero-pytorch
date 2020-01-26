@@ -1,6 +1,15 @@
 import os
-
+import torch
 from .game import Game
+
+
+class DiscreteSupport:
+    def __init__(self, min: int, max: int):
+        assert min < max
+        self.min = min
+        self.max = max
+        self.range = range(min, max + 1)
+        self.size = len(self.range)
 
 
 class BaseMuZeroConfig(object):
@@ -21,7 +30,9 @@ class BaseMuZeroConfig(object):
                  lr_decay_rate: float,
                  lr_decay_steps: float,
                  window_size: int = int(1e6),
-                 value_loss_coeff: float = 1, ):
+                 value_loss_coeff: float = 1,
+                 value_support: DiscreteSupport = None,
+                 reward_support: DiscreteSupport = None):
 
         # Self-Play
         self.action_space_size = None
@@ -63,6 +74,8 @@ class BaseMuZeroConfig(object):
         self.debug = False
         self.model_path = None
         self.seed = None
+        self.value_support = value_support
+        self.reward_support = reward_support
 
         # optimization control
         self.weight_decay = 1e-4
@@ -83,7 +96,7 @@ class BaseMuZeroConfig(object):
     def set_game(self, env_name):
         raise NotImplementedError
 
-    def new_game(self, seed=None, save_video=False, save_path=None, video_callable=None) -> Game:
+    def new_game(self, seed=None, save_video=False, save_path=None, video_callable=None, uid=None) -> Game:
         """ returns a new instance of the game"""
         raise NotImplementedError
 
@@ -92,6 +105,71 @@ class BaseMuZeroConfig(object):
 
     def scalar_loss(self, prediction, target):
         raise NotImplementedError
+
+    @staticmethod
+    def scalar_transform(x):
+        """ Reference : Appendix F => Network Architecture
+        & Appendix A : Proposition A.2 in https://arxiv.org/pdf/1805.11593.pdf (Page-11)
+        """
+        epsilon = 0.001
+        sign = torch.ones(x.shape).float().to(x.device)
+        sign[x < 0] = -1.0
+        output = sign * (torch.sqrt(torch.abs(x) + 1) - 1 + epsilon * x)
+        return output
+
+    def inverse_reward_transform(self, reward_logits):
+        """ Reference : Appendix F => Network Architecture
+        & Appendix A : Proposition A.2 in https://arxiv.org/pdf/1805.11593.pdf (Page-11)
+        """
+        reward_probs = torch.softmax(reward_logits, dim=1)
+        reward_support = torch.ones(reward_probs.shape)
+        reward_support[:, :] = torch.tensor([x for x in self.reward_support.range])
+        reward_support = reward_support.to(reward_probs.device)
+        reward = (reward_support * reward_probs).sum(1, keepdim=True)
+
+        epsilon = 0.001
+        sign = torch.ones(reward.shape).float().to(reward.device)
+        sign[reward < 0] = -1.0
+        output = (((torch.sqrt(1 + 4 * epsilon * (torch.abs(reward) + 1 + epsilon)) - 1) / (2 * epsilon)) ** 2 - 1)
+        output = sign * output
+        return output
+
+    def inverse_value_transform(self, value_logits):
+        """ Reference : Appendix F => Network Architecture
+        & Appendix A : Proposition A.2 in https://arxiv.org/pdf/1805.11593.pdf (Page-11)
+        """
+        value_probs = torch.softmax(value_logits, dim=1)
+        value_support = torch.ones(value_probs.shape)
+        value_support[:, :] = torch.tensor([x for x in self.value_support.range])
+        value_support = value_support.to(device=value_probs.device)
+        value = (value_support * value_probs).sum(1, keepdim=True)
+
+        epsilon = 0.001
+        sign = torch.ones(value.shape).float().to(value.device)
+        sign[value < 0] = -1.0
+        output = (((torch.sqrt(1 + 4 * epsilon * (torch.abs(value) + 1 + epsilon)) - 1) / (2 * epsilon)) ** 2 - 1)
+        output = sign * output
+        return output
+
+    def value_phi(self, x):
+        return self._phi(x, self.value_support.min, self.value_support.max, self.value_support.size)
+
+    def reward_phi(self, x):
+        return self._phi(x, self.reward_support.min, self.reward_support.max, self.reward_support.size)
+
+    @staticmethod
+    def _phi(x, min, max, set_size: int):
+        x.clamp_(min, max)
+        x_low = x.floor()
+        x_high = x.ceil()
+        p_high = (x - x_low)
+        p_low = 1 - p_high
+
+        target = torch.zeros(x.shape[0], x.shape[1], set_size).to(x.device)
+        x_high_idx, x_low_idx = x_high - min, x_low - min
+        target.scatter_(2, x_high_idx.long().unsqueeze(-1), p_high.unsqueeze(-1))
+        target.scatter_(2, x_low_idx.long().unsqueeze(-1), p_low.unsqueeze(-1))
+        return target
 
     def get_hparams(self):
         hparams = {}
