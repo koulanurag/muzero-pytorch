@@ -15,17 +15,25 @@ train_logger = logging.getLogger('train')
 test_logger = logging.getLogger('train_test')
 
 
+def soft_update(target, source, tau):
+    for target_param, param in zip(target.parameters(), source.parameters()):
+        target_param.data.copy_(
+            target_param.data * (1.0 - tau) + param.data * tau
+        )
+
+
 def _log(config, step_count, log_data, model, replay_buffer, lr, worker_logs, summary_writer):
     loss_data, td_data, priority_data = log_data
     weighted_loss, loss, policy_loss, reward_loss, value_loss = loss_data
     target_reward, target_value, trans_target_reward, trans_target_value, target_reward_phi, target_value_phi, \
     pred_reward, pred_value, target_policies, predicted_policies = td_data
     batch_weights, batch_indices = priority_data
-    worker_reward, worker_eps_len, test_score, temperature = worker_logs
+    worker_reward, worker_eps_len, test_score, temperature, visit_entropy = worker_logs
     best_test_score = 0
 
     replay_episodes_collected = ray.get(replay_buffer.episodes_collected.remote())
     replay_buffer_size = ray.get(replay_buffer.size.remote())
+
     _msg = '#{:<10} Loss: {:<8.3f} [weighted Loss:{:<8.3f} Policy Loss: {:<8.3f} Value Loss: {:<8.3f} ' \
            'Reward Loss: {:<8.3f} ] Replay Episodes Collected: {:<10d} Buffer Size: {:<10d} Lr: {:<8.3f}'
     _msg = _msg.format(step_count, loss, weighted_loss, policy_loss, value_loss, reward_loss,
@@ -78,6 +86,7 @@ def _log(config, step_count, log_data, model, replay_buffer, lr, worker_logs, su
             summary_writer.add_scalar('workers/reward', worker_reward, step_count)
             summary_writer.add_scalar('workers/eps_len', worker_eps_len, step_count)
             summary_writer.add_scalar('workers/temperature', temperature, step_count)
+            summary_writer.add_scalar('workers/visit_entropy', visit_entropy, step_count)
 
         if test_score is not None:
             if test_score == best_test_score:
@@ -94,6 +103,7 @@ class SharedStorage(object):
         self.test_log = []
         self.eps_lengths = []
         self.temperature_log = []
+        self.visit_entropies_log = []
 
     def get_weights(self):
         return self.model.get_weights()
@@ -107,10 +117,11 @@ class SharedStorage(object):
     def get_counter(self):
         return self.step_counter
 
-    def set_data_worker_logs(self, eps_len, eps_reward, temperature):
+    def set_data_worker_logs(self, eps_len, eps_reward, temperature, visit_entropy):
         self.eps_lengths.append(eps_len)
         self.reward_log.append(eps_reward)
         self.temperature_log.append(temperature)
+        self.visit_entropies_log.append(visit_entropy)
 
     def add_test_log(self, score):
         self.test_log.append(score)
@@ -120,15 +131,18 @@ class SharedStorage(object):
             reward = sum(self.reward_log) / len(self.reward_log)
             eps_lengths = sum(self.eps_lengths) / len(self.eps_lengths)
             temperature = sum(self.temperature_log) / len(self.temperature_log)
+            visit_entropy = sum(self.visit_entropies_log) / len(self.visit_entropies_log)
 
             self.reward_log = []
             self.eps_lengths = []
             self.temperature_log = []
+            self.visit_entropies_log = []
 
         else:
             reward = None
             eps_lengths = None
             temperature = None
+            visit_entropy = None
 
         if len(self.test_log) > 0:
             test_score = sum(self.test_log) / len(self.test_log)
@@ -136,7 +150,7 @@ class SharedStorage(object):
         else:
             test_score = None
 
-        return reward, eps_lengths, test_score, temperature
+        return reward, eps_lengths, test_score, temperature, visit_entropy
 
 
 @ray.remote
@@ -158,7 +172,7 @@ class DataWorker(object):
                 obs = env.reset()
                 done = False
                 priorities = []
-                eps_reward, eps_steps = 0, 0
+                eps_reward, eps_steps, visit_entropies = 0, 0, 0
                 trained_steps = ray.get(self.shared_storage.get_counter.remote())
                 _temperature = self.config.visit_softmax_temperature_fn(num_moves=len(env.history),
                                                                         trained_steps=trained_steps)
@@ -170,12 +184,13 @@ class DataWorker(object):
                     root.add_exploration_noise(dirichlet_alpha=self.config.root_dirichlet_alpha,
                                                exploration_fraction=self.config.root_exploration_fraction)
                     MCTS(self.config).run(root, env.action_history(), model)
-                    action = select_action(root, temperature=_temperature, deterministic=False)
+                    action, visit_entropy = select_action(root, temperature=_temperature, deterministic=False)
                     obs, reward, done, info = env.step(action.index)
                     env.store_search_stats(root)
 
                     eps_reward += reward
                     eps_steps += 1
+                    visit_entropies += visit_entropy
 
                     if not self.config.use_max_priority:
                         error = L1Loss(reduction='none')(network_output.value,
@@ -186,7 +201,8 @@ class DataWorker(object):
                 self.replay_buffer.save_game.remote(env,
                                                     priorities=None if self.config.use_max_priority else priorities)
                 # Todo: refactor with env attributes to reduce variables
-                self.shared_storage.set_data_worker_logs.remote(eps_steps, eps_reward, _temperature)
+                visit_entropies /= eps_steps
+                self.shared_storage.set_data_worker_logs.remote(eps_steps, eps_reward, _temperature, visit_entropies)
 
 
 def update_weights(model, target_model, optimizer, replay_buffer, config):
@@ -265,7 +281,7 @@ def update_weights(model, target_model, optimizer, replay_buffer, config):
 
 def adjust_lr(config, optimizer, step_count):
     lr = config.lr_init * config.lr_decay_rate ** (step_count / config.lr_decay_steps)
-    lr = max(lr, 0.0005)
+    lr = max(lr, 0.001)
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
     return lr
@@ -276,9 +292,7 @@ def _train(config, shared_storage, replay_buffer, summary_writer):
     model.train()
     optimizer = optim.SGD(model.parameters(), lr=config.lr_init, momentum=config.momentum,
                           weight_decay=config.weight_decay)
-    test_model = config.get_uniform_network().to(config.device)
     target_model = config.get_uniform_network().to('cpu')
-    test_model.eval()
     target_model.eval()
 
     # wait for replay buffer to be non-empty
@@ -291,10 +305,12 @@ def _train(config, shared_storage, replay_buffer, summary_writer):
 
         if step_count % config.checkpoint_interval == 0:
             shared_storage.set_weights.remote(model.get_weights())
-            target_model.set_weights(model.get_weights())
-            target_model.eval()
 
         log_data = update_weights(model, target_model, optimizer, replay_buffer, config)
+
+        # softly update target model
+        if config.use_target_model:
+            soft_update(target_model, model, tau=1e-2)
 
         _log(config, step_count, log_data, model, replay_buffer, lr,
              ray.get(shared_storage.get_worker_logs.remote()), summary_writer)

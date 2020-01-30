@@ -15,7 +15,7 @@ class NetworkOutput(typing.NamedTuple):
 
 
 class BaseMuZeroNet(nn.Module):
-    def __init__(self, inverse_value_transform,inverse_reward_transform):
+    def __init__(self, inverse_value_transform, inverse_reward_transform):
         super(BaseMuZeroNet, self).__init__()
         self.inverse_value_transform = inverse_value_transform
         self.inverse_reward_transform = inverse_reward_transform

@@ -21,7 +21,7 @@ def _test(config, model, ep_i, device, render, save_video, save_path, ep_data):
             obs = torch.FloatTensor(obs).to(device).unsqueeze(0)
             root.expand(env.to_play(), env.legal_actions(), model.initial_inference(obs))
             MCTS(config).run(root, env.action_history(), model)
-            action = select_action(root, temperature=1, deterministic=True)
+            action, _ = select_action(root, temperature=1, deterministic=True)
             obs, reward, done, info = env.step(action.index)
             ep_reward += reward
         env.close()

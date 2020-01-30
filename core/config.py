@@ -41,7 +41,7 @@ class BaseMuZeroConfig(object):
         self.max_moves = max_moves
         self.num_simulations = num_simulations
         self.discount = discount
-        self.max_grad_norm = 10
+        self.max_grad_norm = 5
 
         # testing arguments
         self.test_interval = test_interval
@@ -118,29 +118,18 @@ class BaseMuZeroConfig(object):
         return output
 
     def inverse_reward_transform(self, reward_logits):
-        """ Reference : Appendix F => Network Architecture
-        & Appendix A : Proposition A.2 in https://arxiv.org/pdf/1805.11593.pdf (Page-11)
-        """
-        reward_probs = torch.softmax(reward_logits, dim=1)
-        reward_support = torch.ones(reward_probs.shape)
-        reward_support[:, :] = torch.tensor([x for x in self.reward_support.range])
-        reward_support = reward_support.to(reward_probs.device)
-        reward = (reward_support * reward_probs).sum(1, keepdim=True)
-
-        epsilon = 0.001
-        sign = torch.ones(reward.shape).float().to(reward.device)
-        sign[reward < 0] = -1.0
-        output = (((torch.sqrt(1 + 4 * epsilon * (torch.abs(reward) + 1 + epsilon)) - 1) / (2 * epsilon)) ** 2 - 1)
-        output = sign * output
-        return output
+        return self.inverse_scalar_transform(reward_logits, self.reward_support)
 
     def inverse_value_transform(self, value_logits):
+        return self.inverse_scalar_transform(value_logits, self.value_support)
+
+    def inverse_scalar_transform(self, logits, scalar_support):
         """ Reference : Appendix F => Network Architecture
         & Appendix A : Proposition A.2 in https://arxiv.org/pdf/1805.11593.pdf (Page-11)
         """
-        value_probs = torch.softmax(value_logits, dim=1)
+        value_probs = torch.softmax(logits, dim=1)
         value_support = torch.ones(value_probs.shape)
-        value_support[:, :] = torch.tensor([x for x in self.value_support.range])
+        value_support[:, :] = torch.tensor([x for x in scalar_support.range])
         value_support = value_support.to(device=value_probs.device)
         value = (value_support * value_probs).sum(1, keepdim=True)
 
@@ -193,7 +182,7 @@ class BaseMuZeroConfig(object):
         if args.revisit_policy_search_rate is not None:
             self.revisit_policy_search_rate = args.revisit_policy_search_rate
 
-        self.exp_path = os.path.join(args.result_dir, args.env,
+        self.exp_path = os.path.join(args.result_dir, args.case, args.env,
                                      'revisit_rate_{}'.format(self.revisit_policy_search_rate),
                                      'val_coeff_{}'.format(self.value_loss_coeff),
                                      'with_target' if self.use_target_model else 'no_target',

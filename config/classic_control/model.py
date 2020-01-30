@@ -18,7 +18,9 @@ class MuZeroNet(BaseMuZeroNet):
         self._dynamics_reward = nn.Sequential(nn.Linear(self.hx_size + action_space_n, 64),
                                               nn.LeakyReLU(),
                                               nn.Linear(64, reward_support_size))
-        self._prediction_actor = nn.Sequential(nn.Linear(self.hx_size, action_space_n))
+        self._prediction_actor = nn.Sequential(nn.Linear(self.hx_size, 64),
+                                               nn.LeakyReLU(),
+                                               nn.Linear(64, action_space_n))
         self._prediction_value = nn.Sequential(nn.Linear(self.hx_size, 64),
                                                nn.LeakyReLU(),
                                                nn.Linear(64, value_support_size))
