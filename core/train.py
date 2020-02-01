@@ -29,7 +29,6 @@ def _log(config, step_count, log_data, model, replay_buffer, lr, worker_logs, su
     pred_reward, pred_value, target_policies, predicted_policies = td_data
     batch_weights, batch_indices = priority_data
     worker_reward, worker_eps_len, test_score, temperature, visit_entropy = worker_logs
-    best_test_score = 0
 
     replay_episodes_collected = ray.get(replay_buffer.episodes_collected.remote())
     replay_buffer_size = ray.get(replay_buffer.size.remote())
@@ -41,7 +40,7 @@ def _log(config, step_count, log_data, model, replay_buffer, lr, worker_logs, su
     train_logger.info(_msg)
 
     if test_score is not None:
-        test_msg = '#{:<10} Test Score: {:<10} Best Test Score: {:<10}'.format(step_count, test_score, best_test_score)
+        test_msg = '#{:<10} Test Score: {:<10}'.format(step_count, test_score)
         test_logger.info(test_msg)
 
     if summary_writer is not None:
@@ -89,8 +88,6 @@ def _log(config, step_count, log_data, model, replay_buffer, lr, worker_logs, su
             summary_writer.add_scalar('workers/visit_entropy', visit_entropy, step_count)
 
         if test_score is not None:
-            if test_score == best_test_score:
-                summary_writer.add_scalar('train/best_test_score', best_test_score, step_count)
             summary_writer.add_scalar('train/test_score', test_score, step_count)
 
 
@@ -311,6 +308,7 @@ def _train(config, shared_storage, replay_buffer, summary_writer):
         # softly update target model
         if config.use_target_model:
             soft_update(target_model, model, tau=1e-2)
+            target_model.eval()
 
         _log(config, step_count, log_data, model, replay_buffer, lr,
              ray.get(shared_storage.get_worker_logs.remote()), summary_writer)
@@ -324,13 +322,13 @@ def _train(config, shared_storage, replay_buffer, summary_writer):
 @ray.remote
 def _test(config, shared_storage):
     test_model = config.get_uniform_network().to('cpu')
-    best_test_score = None
+    best_test_score = float('-inf')
     while ray.get(shared_storage.get_counter.remote()) < config.training_steps:
         test_model.set_weights(ray.get(shared_storage.get_weights.remote()))
         test_model.eval()
 
         test_score = test(config, test_model, config.test_episodes, 'cpu', False)
-        if best_test_score is None or test_score >= best_test_score:
+        if test_score >= best_test_score:
             best_test_score = test_score
             torch.save(test_model.state_dict(), config.model_path)
 

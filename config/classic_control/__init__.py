@@ -8,10 +8,10 @@ from .model import MuZeroNet
 class ClassicControlConfig(BaseMuZeroConfig):
     def __init__(self):
         super(ClassicControlConfig, self).__init__(
-            training_steps=10000,
+            training_steps=20000,
             test_interval=100,
             test_episodes=5,
-            checkpoint_interval=25,
+            checkpoint_interval=20,
             max_moves=1000,
             discount=0.997,
             dirichlet_alpha=0.25,
@@ -21,8 +21,8 @@ class ClassicControlConfig(BaseMuZeroConfig):
             num_actors=32,
             lr_init=0.05,
             lr_decay_rate=0.01,
-            lr_decay_steps=5000,
-            window_size=5000,
+            lr_decay_steps=10000,
+            window_size=1000,
             value_loss_coeff=1,
             value_support=DiscreteSupport(-20, 20),
             reward_support=DiscreteSupport(-5, 5))
