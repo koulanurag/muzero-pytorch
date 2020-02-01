@@ -2,6 +2,7 @@ import logging
 import os
 import shutil
 import numpy as np
+from scipy.stats import entropy
 
 
 def make_results_dir(exp_path, args):
@@ -41,5 +42,5 @@ def select_action(node, temperature=1, deterministic=True):
     else:
         action_pos = np.random.choice(len(visit_counts), p=action_probs)
 
-    count_entropy = sum([-np.log(p) * p for p in action_probs])
+    count_entropy = entropy(action_probs, base=2)
     return visit_counts[action_pos][1], count_entropy
