@@ -40,7 +40,7 @@ pip install -r requirements.txt
 ## Training
 ### CartPole-v1
 - Curves represents model evaluation for 5 episodes at 100 step training interval. 
-- Also, each curve has mean scores over 5 runs (seeds : [0,100,200,300,400])
+- Also, each curve is a  mean scores over 5 runs (seeds : [0,100,200,300,400])
 
 | |
 |:--|
