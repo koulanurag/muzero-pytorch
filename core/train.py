@@ -67,7 +67,6 @@ def _log(config, step_count, log_data, model, replay_buffer, lr, worker_logs, su
                                      step_count)
         summary_writer.add_histogram('train_data_dist/pred_reward', pred_reward.flatten(), step_count)
         summary_writer.add_histogram('train_data_dist/pred_value', pred_value.flatten(), step_count)
-        summary_writer.add_histogram('train_data_dist/pred_value', pred_value.flatten(), step_count)
         summary_writer.add_histogram('train_data_dist/pred_policies', predicted_policies.flatten(), step_count)
         summary_writer.add_histogram('train_data_dist/target_policies', target_policies.flatten(), step_count)
 
