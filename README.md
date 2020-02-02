@@ -17,13 +17,13 @@ pip install -r requirements.txt
 |Required Arguments | Description|
 |:-------------|:-------------|
 | `--env`                          |Name of the environment|
-| `--case {atari,classic_control}` |It's used for switching between different domains(default: None)|
+| `--case {atari,classic_control,box2d}` |It's used for switching between different domains(default: None)|
 | `--opr {train,test}`             |select the operation to be performed|
 
 |Optional Arguments | Description|
 |:-------------|:-------------|
 | `--value_loss_coeff`           |Scale for value loss (default: None)|
-| `--revisit_policy_search_rate` |Rate at which target policy is re-estimated (default:None)|
+| `--revisit_policy_search_rate` |Rate at which target policy is re-estimated (default:None)( only valid if ```--use_target_model``` is enabled)|
 | `--use_priority`               |Uses priority for  data sampling in replay buffer. Also, priority for new data is calculated based on loss (default: False)|
 | `--use_max_priority`           |Forces max priority assignment for new incoming data in replay buffer (only valid if ```--use_priority``` is enabled) (default: False) |
 | `--use_target_model`           |Use target model for bootstrap value estimation (default: False)|
@@ -40,15 +40,12 @@ pip install -r requirements.txt
 ## Training
 ### CartPole-v1
 - Curves represents model evaluation for 5 episodes at 100 step training interval. 
-- Also, each curve has mean scores over 3 runs (seeds : [0,100,200])
+- Also, each curve is a  mean scores over 5 runs (seeds : [0,100,200,300,400])
 
-||
-|--|
+| |
+|:--|
 |![](static/imgs/cartpole_test_score.png)|
 |![](static/imgs/legend_cartpole.png)|
-
-
-
 
 
 

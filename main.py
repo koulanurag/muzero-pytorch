@@ -18,7 +18,7 @@ if __name__ == '__main__':
     parser.add_argument('--env', required=True, help='Name of the environment')
     parser.add_argument('--result_dir', default=os.path.join(os.getcwd(), 'results'),
                         help="Directory Path to store results (default: %(default)s)")
-    parser.add_argument('--case', required=True, choices=['atari', 'classic_control'],
+    parser.add_argument('--case', required=True, choices=['atari', 'classic_control', 'box2d'],
                         help="It's used for switching between different domains(default: %(default)s)")
     parser.add_argument('--opr', required=True, choices=['train', 'test'])
     parser.add_argument('--no_cuda', action='store_true', default=False,
@@ -50,7 +50,7 @@ if __name__ == '__main__':
     # Process arguments
     args = parser.parse_args()
     args.device = 'cuda' if (not args.no_cuda) and torch.cuda.is_available() else 'cpu'
-    assert args.revisit_policy_search_rate is None or 0 <= args.revisit_policy_search_rate <= 1,\
+    assert args.revisit_policy_search_rate is None or 0 <= args.revisit_policy_search_rate <= 1, \
         ' Revisit policy search rate should be in [0,1]'
 
     # seeding random iterators
@@ -60,6 +60,8 @@ if __name__ == '__main__':
     # import corresponding configuration , neural networks and envs
     if args.case == 'atari':
         from config.atari import muzero_config
+    elif args.case == 'box2d':
+        from config.classic_control import muzero_config  # just using same config as classic_control for now
     elif args.case == 'classic_control':
         from config.classic_control import muzero_config
     else:

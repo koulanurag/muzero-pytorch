@@ -5,8 +5,9 @@ from core.model import BaseMuZeroNet
 
 
 class MuZeroNet(BaseMuZeroNet):
-    def __init__(self, input_size, action_space_n):
-        super(MuZeroNet, self).__init__(input_size, action_space_n)
+    def __init__(self, input_size, action_space_n, reward_support_size, value_support_size,
+                 inverse_value_transform, inverse_reward_transform):
+        super(MuZeroNet, self).__init__(inverse_value_transform, inverse_reward_transform)
         self.hx_size = 32
         self._representation = nn.Sequential(nn.Linear(input_size, self.hx_size),
                                              nn.Tanh())
@@ -15,12 +16,14 @@ class MuZeroNet(BaseMuZeroNet):
                                              nn.Linear(64, self.hx_size),
                                              nn.Tanh())
         self._dynamics_reward = nn.Sequential(nn.Linear(self.hx_size + action_space_n, 64),
-                                              nn.ReLU(),
-                                              nn.Linear(64, 1))
-        self._prediction_actor = nn.Sequential(nn.Linear(self.hx_size, action_space_n))
+                                              nn.LeakyReLU(),
+                                              nn.Linear(64, reward_support_size))
+        self._prediction_actor = nn.Sequential(nn.Linear(self.hx_size, 64),
+                                               nn.LeakyReLU(),
+                                               nn.Linear(64, action_space_n))
         self._prediction_value = nn.Sequential(nn.Linear(self.hx_size, 64),
-                                               nn.ReLU(),
-                                               nn.Linear(64, 1))
+                                               nn.LeakyReLU(),
+                                               nn.Linear(64, value_support_size))
         self.action_space_n = action_space_n
 
         self._prediction_value[-1].weight.data.fill_(0)
@@ -48,9 +51,3 @@ class MuZeroNet(BaseMuZeroNet):
         next_state = self._dynamics_state(x)
         reward = self._dynamics_reward(x)
         return next_state, reward
-
-    def _value_transformation(self, value):
-        return value
-
-    def _reward_transformation(self, reward):
-        return reward
