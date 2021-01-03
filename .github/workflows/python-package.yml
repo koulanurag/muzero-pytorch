@@ -5,9 +5,9 @@ name: muzero-pytorch
 
 on:
   push:
-    branches: [ master, koulanurag-github-workflow]
+    branches: [ master ]
   pull_request:
-    branches: [ master, koulanurag-github-workflow]
+    branches: [ master ]
 
 jobs:
   build:
