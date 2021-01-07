@@ -339,8 +339,10 @@ def train(config, summary_writer=None):
     storage = SharedStorage.remote(config.get_uniform_network())
     replay_buffer = ReplayBuffer.remote(batch_size=config.batch_size, capacity=config.window_size,
                                         prob_alpha=config.priority_prob_alpha)
-    workers = [DataWorker.remote(rank, config, storage, replay_buffer).run.remote()
+    workers = [DataWorker.remote(rank, config, storage, replay_buffer)
                for rank in range(0, config.num_actors)]
+    for worker in workers:
+        worker.run.remote()
     workers += [_test.remote(config, storage)]
     _train(config, storage, replay_buffer, summary_writer)
     ray.wait(workers, len(workers))
