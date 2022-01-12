@@ -97,12 +97,15 @@ class MCTS(object):
         pb_c *= math.sqrt(parent.visit_count) / (child.visit_count + 1)
 
         prior_score = pb_c * child.prior
-        value_score = min_max_stats.normalize(child.value())
+        if child.visit_count > 0:
+            value_score = child.reward + self.config.discount * min_max_stats.normalize(child.value())
+        else:
+            value_score = 0
 
         return prior_score + value_score
 
     def backpropagate(self, search_path, value, to_play, min_max_stats):
-        for node in search_path:
+        for node in reversed(search_path):
             node.value_sum += value if node.to_play == to_play else -value
             node.visit_count += 1
             min_max_stats.update(node.value())

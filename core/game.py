@@ -104,9 +104,14 @@ class Game:
             for i, reward in enumerate(self.rewards[current_index:bootstrap_index]):
                 value += reward * self.discount ** i
 
+            if current_index > 0 and current_index <= len(self.rewards):
+                last_reward = self.rewards[current_index-1]
+            else:
+                last_reward = 0
+
             if current_index < len(self.root_values):
                 target_values.append(value)
-                target_rewards.append(self.rewards[current_index])
+                target_rewards.append(last_reward)
 
                 # Reference : Appendix H => Reanalyze
                 # Note : MuZero Reanalyze revisits its past time-steps and re-executes its search using the
@@ -127,7 +132,7 @@ class Game:
             else:
                 # States past the end of games are treated as absorbing states.
                 target_values.append(0)
-                target_rewards.append(0)
+                target_rewards.append(last_reward)
                 # Note: Target policy is  set to 0 so that no policy loss is calculated for them
                 target_policies.append([0 for _ in range(len(self.child_visits[0]))])
 
