@@ -20,7 +20,7 @@ class ClassicControlWrapper(Game):
         return [Action(_) for _ in range(self.env.action_space.n)]
 
     def step(self, action):
-        obs, reward, done, info = self.env.step(action)
+        obs, reward, done, _, info = self.env.step(action)
 
         self.rewards.append(reward)
         self.history.append(action)

@@ -46,7 +46,7 @@ class ClassicControlConfig(BaseMuZeroConfig):
                          self.inverse_value_transform, self.inverse_reward_transform)
 
     def new_game(self, save_video=False, save_path=None, video_callable=None, uid=None):
-        env = gym.make(self.env_name)
+        env = gym.make(self.env_name, new_step_api=True)
         if save_video:
             from gym.wrappers import RecordVideo
             env = RecordVideo(env, video_folder=save_path, name_prefix=f"rl-video-{uid}", new_step_api=True)
