@@ -48,7 +48,7 @@ class ClassicControlConfig(BaseMuZeroConfig):
     def new_game(self, seed=None, save_video=False, save_path=None, video_callable=None, uid=None):
         env = gym.make(self.env_name)
         if seed is not None:
-            env.seed(seed)
+            env.reset(seed=seed)
 
         if save_video:
             from gym.wrappers import Monitor
