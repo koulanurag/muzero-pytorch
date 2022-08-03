@@ -51,8 +51,8 @@ class ClassicControlConfig(BaseMuZeroConfig):
             env.seed(seed)
 
         if save_video:
-            from gym.wrappers import Monitor
-            env = Monitor(env, directory=save_path, force=True, video_callable=video_callable, uid=uid)
+            from gym.wrappers import RecordVideo
+            env = RecordVideo(env, video_folder=save_path, name_prefix=f"rl-video-{uid}", new_step_api=True)
         return ClassicControlWrapper(env, discount=self.discount, k=4)
 
     def scalar_reward_loss(self, prediction, target):
