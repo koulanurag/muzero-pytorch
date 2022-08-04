@@ -175,6 +175,7 @@ class BaseMuZeroConfig(object):
         self.debug = args.debug
         self.device = args.device
         self.use_max_priority = (args.use_max_priority and args.use_priority)
+        self.num_actors = args.num_actors
 
         if args.value_loss_coeff is not None:
             self.value_loss_coeff = args.value_loss_coeff

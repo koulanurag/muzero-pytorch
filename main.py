@@ -44,6 +44,8 @@ if __name__ == '__main__':
                              'Also, priority for new data is calculated based on loss (default: False)')
     parser.add_argument('--use_target_model', action='store_true', default=False,
                         help='Use target model for bootstrap value estimation (default: %(default)s)')
+    parser.add_argument('--num_actors', type=int, default=32,
+                        help='Number of actors running concurrently (default: %(default)s)')
     parser.add_argument('--test_episodes', type=int, default=10,
                         help='Evaluation episode count (default: %(default)s)')
 
