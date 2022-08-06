@@ -163,9 +163,9 @@ class DataWorker(object):
             while ray.get(self.shared_storage.get_counter.remote()) < self.config.training_steps:
                 model.set_weights(ray.get(self.shared_storage.get_weights.remote()))
                 model.eval()
-                env = self.config.new_game(self.config.seed + self.rank)
+                env = self.config.new_game()
 
-                obs = env.reset()
+                obs = env.reset(seed = self.config.seed + self.rank)
                 done = False
                 priorities = []
                 eps_reward, eps_steps, visit_entropies = 0, 0, 0

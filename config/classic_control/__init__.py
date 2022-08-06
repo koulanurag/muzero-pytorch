@@ -45,11 +45,8 @@ class ClassicControlConfig(BaseMuZeroConfig):
         return MuZeroNet(self.obs_shape, self.action_space_size, self.reward_support.size, self.value_support.size,
                          self.inverse_value_transform, self.inverse_reward_transform)
 
-    def new_game(self, seed=None, save_video=False, save_path=None, video_callable=None, uid=None):
+    def new_game(self, save_video=False, save_path=None, video_callable=None, uid=None):
         env = gym.make(self.env_name)
-        if seed is not None:
-            env.reset(seed=seed)
-
         if save_video:
             from gym.wrappers import Monitor
             env = Monitor(env, directory=save_path, force=True, video_callable=video_callable, uid=uid)
