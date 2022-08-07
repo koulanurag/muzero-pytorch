@@ -30,6 +30,7 @@ _Note: This implementation has just been tested on CartPole-v1 and would require
 | `--use_target_model`           |Use target model for bootstrap value estimation (default: False)|
 | `--result_dir`                 |Directory Path to store results (defaut: current working directory)|
 | `--no_cuda`                    |no cuda usage (default: False)|
+| `--no_mps`                     |no mps (Metal Performance Shaders) usage (default: False)|
 | `--debug`                      |If enables, logs additional values  (default:False)|
 | `--render`                     |Renders the environment (default: False)|
 | `--force`                      |Overrides past results (default: False)|

@@ -22,6 +22,8 @@ if __name__ == '__main__':
     parser.add_argument('--opr', required=True, choices=['train', 'test'])
     parser.add_argument('--no_cuda', action='store_true', default=False,
                         help='no cuda usage (default: %(default)s)')
+    parser.add_argument('--no_mps', action='store_true', default=False,
+                        help='no mps (Metal Performance Shaders) usage (default: %(default)s)')
     parser.add_argument('--debug', action='store_true', default=False,
                         help='If enabled, logs additional values  '
                              '(gradients, target value, reward distribution, etc.) (default: %(default)s)')
@@ -50,7 +52,8 @@ if __name__ == '__main__':
 
     # Process arguments
     args = parser.parse_args()
-    args.device = 'cuda' if (not args.no_cuda) and torch.cuda.is_available() else 'cpu'
+    args.device = 'cuda' if (not args.no_cuda) and torch.cuda.is_available() else (
+        'mps' if (not args.no_mps) and torch.backends.mps.is_available() else 'cpu')
     assert args.revisit_policy_search_rate is None or 0 <= args.revisit_policy_search_rate <= 1, \
         ' Revisit policy search rate should be in [0,1]'
 
