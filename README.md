@@ -4,7 +4,7 @@ Pytorch Implementation of MuZero : "[Mastering Atari , Go, Chess and Shogi by Pl
 _Note: This implementation has just been tested on CartPole-v1 and would required modifications(`in config folder`) for other environments_
 
 ### Installation
-  - Python 3.6, 3.7
+  - Python 3.8, 3.9
   - ```bash
       cd muzero-pytorch
       pip install -r requirements.txt
