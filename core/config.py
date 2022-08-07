@@ -25,7 +25,6 @@ class BaseMuZeroConfig(object):
                  num_simulations: int,
                  batch_size: int,
                  td_steps: int,
-                 num_actors: int,
                  lr_init: float,
                  lr_decay_rate: float,
                  lr_decay_steps: float,
@@ -36,7 +35,6 @@ class BaseMuZeroConfig(object):
 
         # Self-Play
         self.action_space_size = None
-        self.num_actors = num_actors
 
         self.max_moves = max_moves
         self.num_simulations = num_simulations
@@ -76,6 +74,7 @@ class BaseMuZeroConfig(object):
         self.seed = None
         self.value_support = value_support
         self.reward_support = reward_support
+        self.num_actors = None
 
         # optimization control
         self.weight_decay = 1e-4
