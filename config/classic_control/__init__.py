@@ -1,5 +1,8 @@
+from typing import Callable
+
 import gym
 import torch
+
 from core.config import BaseMuZeroConfig, DiscreteSupport
 from .env_wrapper import ClassicControlWrapper
 from .model import MuZeroNet
@@ -45,11 +48,13 @@ class ClassicControlConfig(BaseMuZeroConfig):
         return MuZeroNet(self.obs_shape, self.action_space_size, self.reward_support.size, self.value_support.size,
                          self.inverse_value_transform, self.inverse_reward_transform)
 
-    def new_game(self, save_video=False, save_path=None, video_callable=None, uid=None):
+    def new_game(self, save_video=False, save_path=None, episode_trigger: Callable[[int], bool] = None, uid=None):
         env = gym.make(self.env_name, new_step_api=True)
         if save_video:
+            assert save_path is not None, 'save_path cannot be None if saving video'
             from gym.wrappers import RecordVideo
-            env = RecordVideo(env, video_folder=save_path, name_prefix=f"rl-video-{uid}", new_step_api=True)
+            env = RecordVideo(env, video_folder=save_path, episode_trigger=episode_trigger,
+                              name_prefix=f"rl-video-{uid}", new_step_api=True)
         return ClassicControlWrapper(env, discount=self.discount, k=4)
 
     def scalar_reward_loss(self, prediction, target):
