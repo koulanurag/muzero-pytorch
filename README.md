@@ -34,6 +34,7 @@ _Note: This implementation has just been tested on CartPole-v1 and would require
 | `--render`                     |Renders the environment (default: False)|
 | `--force`                      |Overrides past results (default: False)|
 | `--seed`                       |seed (default: 0)|
+| `--num_actors`                 |Number of actors running concurrently (default: 32)|
 | `--test_episodes`              |Evaluation episode count (default: 10)|
 
 ```Note: default: None => Values are loaded from the corresponding config```
