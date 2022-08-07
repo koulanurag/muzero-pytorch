@@ -15,7 +15,7 @@ _Note: This implementation has just been tested on CartPole-v1 and would require
 * Test: ```python main.py --env CartPole-v1 --case classic_control --opr test```
 * Visualize results : 
   * ```tensorboard --logdir=<result_dir_path>```
-  * is `--use_wandb` was passed, you can visualize results in wandb as well.
+  * if `--use_wandb` was passed, you can visualize results in wandb as well.
 
 |Required Arguments | Description|
 |:-------------|:-------------|
