@@ -11,7 +11,6 @@ from core.test import test
 from core.train import train
 from core.utils import init_logger, make_results_dir
 
-ray.init()
 if __name__ == '__main__':
     # Lets gather arguments
     parser = argparse.ArgumentParser(description='MuZero Pytorch Implementation')
@@ -78,9 +77,10 @@ if __name__ == '__main__':
 
     try:
         if args.opr == 'train':
+            ray.init()
             summary_writer = SummaryWriter(exp_path, flush_secs=10)
             train(muzero_config, summary_writer)
-
+            ray.shutdown()
         elif args.opr == 'test':
             assert os.path.exists(muzero_config.model_path), 'model not found at {}'.format(muzero_config.model_path)
             model = muzero_config.get_uniform_network().to('cpu')
@@ -90,6 +90,5 @@ if __name__ == '__main__':
             logging.getLogger('test').info('Test Score: {}'.format(test_score))
         else:
             raise Exception('Please select a valid operation(--opr) to be performed')
-        ray.shutdown()
     except Exception as e:
         logging.getLogger('root').error(e, exc_info=True)
