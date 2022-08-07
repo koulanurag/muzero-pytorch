@@ -5,6 +5,7 @@ import os
 import numpy as np
 import ray
 import torch
+import wandb
 from torch.utils.tensorboard import SummaryWriter
 
 from core.test import test
@@ -49,6 +50,8 @@ if __name__ == '__main__':
                         help='Number of actors running concurrently (default: %(default)s)')
     parser.add_argument('--test_episodes', type=int, default=10,
                         help='Evaluation episode count (default: %(default)s)')
+    parser.add_argument('--use_wandb', action='store_true', default=False,
+                        help='logs console and tensorboard date on wandb(https://wandb.ai) (default: %(default)s)')
 
     # Process arguments
     args = parser.parse_args()
@@ -83,6 +86,8 @@ if __name__ == '__main__':
     try:
         if args.opr == 'train':
             ray.init()
+            if args.use_wandb:
+                wandb.init(project="muzero-pytorch", sync_tensorboard=True,  config=muzero_config.get_hparams())
             summary_writer = SummaryWriter(exp_path, flush_secs=10)
             train(muzero_config, summary_writer)
             ray.shutdown()
