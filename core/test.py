@@ -10,7 +10,7 @@ import multiprocessing
 def _test(config, model, ep_i, device, render, save_video, save_path, ep_data):
     with torch.no_grad():
         env = config.new_game(save_video=save_video, save_path=save_path,
-                              video_callable=lambda episode_id: True, uid=ep_i)
+                              episode_trigger=lambda episode_id: True, uid=ep_i)
         done = False
         ep_reward = 0
         obs = env.reset()

@@ -96,7 +96,7 @@ class BaseMuZeroConfig(object):
     def set_game(self, env_name):
         raise NotImplementedError
 
-    def new_game(self, seed=None, save_video=False, save_path=None, video_callable=None, uid=None) -> Game:
+    def new_game(self, save_video=False, save_path=None, video_callable=None, uid=None) -> Game:
         """ returns a new instance of the game"""
         raise NotImplementedError
 

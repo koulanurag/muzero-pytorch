@@ -163,9 +163,9 @@ class DataWorker(object):
             while ray.get(self.shared_storage.get_counter.remote()) < self.config.training_steps:
                 model.set_weights(ray.get(self.shared_storage.get_weights.remote()))
                 model.eval()
-                env = self.config.new_game(self.config.seed + self.rank)
+                env = self.config.new_game()
 
-                obs = env.reset()
+                obs = env.reset(seed=self.config.seed + self.rank)
                 done = False
                 priorities = []
                 eps_reward, eps_steps, visit_entropies = 0, 0, 0
@@ -339,8 +339,10 @@ def train(config, summary_writer=None):
     storage = SharedStorage.remote(config.get_uniform_network())
     replay_buffer = ReplayBuffer.remote(batch_size=config.batch_size, capacity=config.window_size,
                                         prob_alpha=config.priority_prob_alpha)
-    workers = [DataWorker.remote(rank, config, storage, replay_buffer).run.remote()
+    workers = [DataWorker.remote(rank, config, storage, replay_buffer)
                for rank in range(0, config.num_actors)]
+    for worker in workers:
+        worker.run.remote()
     workers += [_test.remote(config, storage)]
     _train(config, storage, replay_buffer, summary_writer)
     ray.wait(workers, len(workers))
