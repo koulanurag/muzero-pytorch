@@ -63,7 +63,9 @@ if __name__ == '__main__':
 
     # import corresponding configuration , neural networks and envs
     if args.case == 'atari':
-        from config.atari import muzero_config
+        # from config.atari import muzero_config
+        raise NotImplementedError('Atari Configuration is not implemented and one can use classic_control'
+                                  ' configuration as a template for the same.')
     elif args.case == 'box2d':
         from config.classic_control import muzero_config  # just using same config as classic_control for now
     elif args.case == 'classic_control':
